@@ -72,7 +72,7 @@ SlamNode::SlamNode(void)
   if(robotNbr == 1)  //single slam
   {
     threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, nameSpace, xOffset, yOffset);
-    subs = TaggedSubscriber("/"+curRobotName+"/"+topicLaser, *threadLocalize, _nh);
+    subs = TaggedSubscriber("/"+nameSpace+"/"+topicLaser, *threadLocalize, _nh);
     subs.switchOn();
     _subsLaser.push_back(subs);
     _localizers.push_back(threadLocalize);
@@ -84,7 +84,7 @@ SlamNode::SlamNode(void)
     {
       prvNh.param<string>("robot_name_" + to_string(i), nameSpace, "robot" + to_string(i));
       threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, nameSpace, xOffset, yOffset);
-      subs = TaggedSubscriber("/"+curRobotName+"/"+topicLaser, *threadLocalize, _nh);
+      subs = TaggedSubscriber("/"+nameSpace+"/"+topicLaser, *threadLocalize, _nh);
       subs.switchOn();
       _subsLaser.push_back(subs);
       _localizers.push_back(threadLocalize);
