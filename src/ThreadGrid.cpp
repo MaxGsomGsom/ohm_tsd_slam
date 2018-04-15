@@ -9,6 +9,7 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/image_encodings.h>
 
+using namespace ros::names;
 
 namespace ohm_tsd_slam
 {
@@ -39,16 +40,24 @@ ThreadGrid::ThreadGrid(obvious::TsdGrid* grid, ros::NodeHandle* const nh, const 
 
   ros::NodeHandle prvNh("~");
   std::string mapTopic;
-  std::string getMapTopic;
+  std::string getMapService;
   std::string topicTsdColorMap;
   std::string tfBaseFrame;
+  std::string curRobotName;
   int intVar         = 0;
   prvNh.param<bool>("pub_tsd_color_map", _pubTsdColorMap, true);
-  prvNh.param("map_topic", mapTopic, std::string("map"));
-  prvNh.param("get_map_topic", getMapTopic, std::string("map"));
-  prvNh.param<std::string>("topic_tsd_color_map", topicTsdColorMap, "tsd");
-  prvNh.param<std::string>("tf_base_frame", tfBaseFrame, "map");
+  prvNh.param<string>("map_topic", mapTopic, "map");
+  prvNh.param<string>("get_map_service", getMapService, "get_map");
+  prvNh.param<string>("topic_tsd_color_map", topicTsdColorMap, "tsd");
+  prvNh.param<string>("cur_robot_name", curRobotName, "");
+
+  prvNh.param<string>("tf_base_frame", tfBaseFrame, "map");
+  tfBaseFrame = curRobotName+"/"+tfBaseFrame;
   _occGrid->header.frame_id = tfBaseFrame;
+
+  mapTopic = "/"+curRobotName+"/"+mapTopic;
+  getMapService = "/"+curRobotName+"/"+getMapService;
+  topicTsdColorMap = "/"+curRobotName+"/"+topicTsdColorMap;
 
   prvNh.param<int>("object_inflation_factor", intVar, 2);
   prvNh.param<bool>("use_object_inflation", _objectInflation, false);  //toDo: exchange with if inflation > 0
@@ -56,7 +65,7 @@ ThreadGrid::ThreadGrid(obvious::TsdGrid* grid, ros::NodeHandle* const nh, const 
 
   _gridPub          = nh->advertise<nav_msgs::OccupancyGrid>(mapTopic, 1);
   _pubColorImage = nh->advertise<sensor_msgs::Image>(topicTsdColorMap, 1);
-  _getMapServ       = nh->advertiseService(getMapTopic, &ThreadGrid::getMapServCallBack, this);
+  _getMapServ       = nh->advertiseService(getMapService, &ThreadGrid::getMapServCallBack, this);
   _objInflateFactor = static_cast<unsigned int>(intVar);
 }
 

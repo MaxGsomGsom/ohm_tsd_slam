@@ -8,11 +8,12 @@
 #include "SlamNode.h"
 #include "ThreadMapping.h"
 #include "ThreadGrid.h"
-
-
-
+#include <string>
 
 #include "obcore/math/mathbase.h"
+
+using namespace std;
+using namespace ros::names;
 
 
 namespace ohm_tsd_slam
@@ -20,40 +21,36 @@ namespace ohm_tsd_slam
 SlamNode::SlamNode(void)
 {
   ros::NodeHandle prvNh("~");
-  int iVar                   = 0;
-  double gridPublishInterval = 0.0;
-  double loopRateVar         = 0.0;
-  double truncationRadius    = 0.0;
-  double cellSize            = 0.0;
-  unsigned int octaveFactor  = 0;
-  double xOffset = 0.0;
-  double yOffset = 0.0;
-  std::string topicLaser;
-  std::string topicServiceStartStop;
-  prvNh.param<int>("robot_nbr", iVar, 1);
-  unsigned int robotNbr = static_cast<unsigned int>(iVar);
-  prvNh.param<double>("x_off_factor", _xOffFactor, 0.5);
-  prvNh.param<double>("y_off_factor", _yOffFactor, 0.5);
-  prvNh.param<double>("x_offset", xOffset, 0.0);
-  prvNh.param<double>("y_offset", yOffset, 0.0);
+  int robotNbr;
+  double gridPublishInterval;
+  double loopRateVar;
+  double truncationRadius;
+  double cellSize;
+  int octaveFactor;
+  double xOffset;
+  double yOffset;
+  string topicLaser;
+  string topicServiceStartStop;
+  string curRobotName;
 
-
-  prvNh.param<int>("map_size", iVar, 10);
-  octaveFactor = static_cast<unsigned int>(iVar);
+  prvNh.param<int>("robot_nbr", robotNbr, 1);
+  prvNh.param<int>("map_size", octaveFactor, 10);
+  prvNh.param<double>("x_offset", xOffset, 0);
+  prvNh.param<double>("y_offset", yOffset, 0);
   prvNh.param<double>("cellsize", cellSize, 0.025);
-  prvNh.param<int>("truncation_radius", iVar, 3);
-  truncationRadius = static_cast<double>(iVar);
+  prvNh.param<double>("truncation_radius", truncationRadius, 3);
   prvNh.param<double>("occ_grid_time_interval", gridPublishInterval, 2.0);
-  prvNh.param<double>("loop_rate", loopRateVar, 40.0);
-  prvNh.param<std::string>("laser_topic", topicLaser, "scan");
-  prvNh.param<std::string>("topic_service_start_stop", topicServiceStartStop, "start_stop_slam");
+  prvNh.param<double>("loop_rate", loopRateVar, 30.0);
+  prvNh.param<string>("laser_topic", topicLaser, "scan");
+  prvNh.param<string>("start_service_name", topicServiceStartStop, "start_slam");
+  prvNh.param<string>("cur_robot_name", curRobotName, "");
 
   _loopRate = new ros::Rate(loopRateVar);
   _gridInterval = new ros::Duration(gridPublishInterval);
 
   if(octaveFactor > 15)
   {
-    ROS_ERROR_STREAM("Error! Unknown map size -> set to default!" << std::endl);
+    ROS_ERROR_STREAM("Error! Unknown map size -> set to default!" << endl);
     octaveFactor = 10;
   }
   //instanciate representation
@@ -62,51 +59,46 @@ SlamNode::SlamNode(void)
   unsigned int cellsPerSide = pow(2, octaveFactor);
   double sideLength = static_cast<double>(cellsPerSide) * cellSize;
   ROS_INFO_STREAM("Creating representation with " << cellsPerSide << "x" << cellsPerSide << "cells, representating " <<
-                  sideLength << "x" << sideLength << "m^2" << std::endl);
+                  sideLength << "x" << sideLength << "m^2" << endl);
   //instanciate mapping threads
   _threadMapping = new ThreadMapping(_grid);
   _threadGrid    = new ThreadGrid(_grid, &_nh, xOffset, yOffset);
 
   ThreadLocalize* threadLocalize = NULL;
   TaggedSubscriber subs;
-  std::string nameSpace = "";
+  string nameSpace = "";
 
   //instanciate localization threads
   if(robotNbr == 1)  //single slam
   {
     threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, nameSpace, xOffset, yOffset);
-    subs = TaggedSubscriber(topicLaser, *threadLocalize, _nh);
+    subs = TaggedSubscriber("/"+curRobotName+"/"+topicLaser, *threadLocalize, _nh);
     subs.switchOn();
-    //subs = _nh.subscribe(topicLaser, 1, &ThreadLocalize::laserCallBack, threadLocalize);
     _subsLaser.push_back(subs);
     _localizers.push_back(threadLocalize);
-    ROS_INFO_STREAM("Single SLAM started" << std::endl);
+    ROS_INFO_STREAM("Single SLAM started" << endl);
   }
   else
   {
-    for(unsigned int i = 0; i < robotNbr; i++)   //multi slam
+    for(int i = 0; i < robotNbr; i++)   //multi slam
     {
-      std::stringstream sstream;
-      sstream << "robot";
-      sstream << i << "/namespace";
-      std::string dummy = sstream.str();
-      prvNh.param(dummy, nameSpace, std::string("default_ns"));
+      prvNh.param<string>("robot_name_" + to_string(i), nameSpace, "robot" + to_string(i));
       threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, nameSpace, xOffset, yOffset);
-//      subs = _nh.subscribe(nameSpace + "/" + topicLaser, 1, &ThreadLocalize::laserCallBack, threadLocalize);
-      subs = TaggedSubscriber(nameSpace + "/" + topicLaser, *threadLocalize, _nh);
+      subs = TaggedSubscriber("/"+curRobotName+"/"+topicLaser, *threadLocalize, _nh);
+      subs.switchOn();
       _subsLaser.push_back(subs);
       _localizers.push_back(threadLocalize);
-      ROS_INFO_STREAM("started for thread for " << nameSpace << std::endl);
+      ROS_INFO_STREAM("Started thread for " << nameSpace << endl);
     }
-    ROS_INFO_STREAM("Multi SLAM started!");
+    ROS_INFO_STREAM("Multi SLAM started");
   }
-  _serviceStartStopSLAM = _nh.advertiseService(topicServiceStartStop, &SlamNode::callBackServiceStartStopSLAM, this);
+  _serviceStartStopSLAM = _nh.advertiseService("/"+curRobotName+"/"+topicServiceStartStop, &SlamNode::callBackServiceStartStopSLAM, this);
 }
 
 SlamNode::~SlamNode()
 {
   //stop all localization threads
-  for(std::vector<ThreadLocalize*>::iterator iter = _localizers.begin(); iter < _localizers.end(); iter++)
+  for(vector<ThreadLocalize*>::iterator iter = _localizers.begin(); iter < _localizers.end(); iter++)
   {
     (*iter)->terminateThread();
     while((*iter)->alive(THREAD_TERM_MS))
@@ -140,7 +132,6 @@ void SlamNode::timedGridPub(void)
 
 void SlamNode::run(void)
 {
-  ROS_INFO_STREAM("Waiting for first laser scan to initialize node...\n");
   while(ros::ok())
   {
     ros::spinOnce();
@@ -154,7 +145,7 @@ bool SlamNode::callBackServiceStartStopSLAM(ohm_tsd_slam::StartStopSLAM::Request
   TaggedSubscriber* subsCur = NULL;
   for(auto iter = _subsLaser.begin(); iter < _subsLaser.end(); iter++)
   {
-    if(iter->topic(req.topic))
+    if(iter->equal(req.topic))
       subsCur = &*iter;
   }
   if(!subsCur)

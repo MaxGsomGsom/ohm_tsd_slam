@@ -42,7 +42,7 @@ struct TaggedSubscriber
     _localizer(NULL),
     _nh(NULL)
   {}
-  bool topic(const std::string topic)
+  bool equal(const std::string topic)
   {
     return topic == _topic;
   }
@@ -119,16 +119,6 @@ private:
    * Grid thread instance
    */
   ThreadGrid* _threadGrid;
-
-  /**
-   * X starting offset factor
-   */
-  double _xOffFactor;
-
-  /**
-   * Y starting offset factor
-   */
-  double _yOffFactor;
 
   /**
    * Rate used for occupancy grid generation

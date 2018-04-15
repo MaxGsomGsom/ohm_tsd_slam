@@ -314,7 +314,7 @@ private:
   /**
    * Iterations for experimental registration alorithm
    */
-  unsigned int _ranTrials;
+  int _ranTrials;
 
   /**
    * Threshold for experimental registration algorithm
@@ -324,7 +324,7 @@ private:
   /**
    * Control size set for experimental registration algorithm
    */
-  unsigned int _ranSizeCtrlSet;
+  int _ranSizeCtrlSet;
 
   /**
    * Angle threshold for experimental registration algorithm
@@ -334,7 +334,7 @@ private:
   /**
    * namespace for all topics and services
    */
-  std::string _nameSpace;
+  std::string _robotName;
 
   /**
    * Container for laser sensor data (filled by callback)

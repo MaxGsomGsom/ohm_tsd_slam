@@ -24,10 +24,13 @@
 
 //#define TRACE
 
+
+using namespace ros::names;
+
 namespace ohm_tsd_slam
 {
 
-ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ros::NodeHandle* nh, std::string nameSpace,
+ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ros::NodeHandle* nh, std::string robotName,
     const double xOffset, const double yOffset):
                     ThreadSLAM(*grid),
                     _nh(nh),
@@ -40,37 +43,42 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
                     _gridOffSetY(-1.0 * (grid->getCellsY()* grid->getCellSize() * 0.5 + yOffset)),
                     _xOffset(xOffset),
                     _yOffset(yOffset),
-                    _nameSpace(nameSpace),
+                    _robotName(robotName),
                     _stampLaser(ros::Time::now())
 {
   ros::NodeHandle prvNh("~");
 
 
-  /*** Read parameters from ros parameter server. Use namespace if provided ***/
-  _nameSpace = nameSpace;
-  std::string::iterator it = _nameSpace.end() - 1;
-  if (*it != '/' && _nameSpace.size()>0)
-    _nameSpace += "/";
+  /*** Read parameters from ros parameter server.  ***/
+  _robotName = robotName; //without any "/"
 
   //pose
   std::string poseTopic;
-  prvNh.param(_nameSpace + "pose_topic", poseTopic, std::string("default_ns/pose"));
-  poseTopic = _nameSpace + poseTopic;
+  prvNh.param<string>("pose_topic", poseTopic, "pose");
+  poseTopic = _robotName + "_" + poseTopic;
 
   //frames
-  prvNh.param("tf_base_frame", _tfBaseFrameId, std::string("/map"));
-  prvNh.param(_nameSpace + "tf_child_frame", _tfChildFrameId, std::string("default_ns/laser"));
-  prvNh.param("tf_odom_frame", _tfOdomFrameId, std::string("wheelodom"));
-  prvNh.param("tf_footprint_frame", _tfFootprintFrameId, std::string("base_footprint"));
+  prvNh.param<string>("tf_base_frame", _tfBaseFrameId, "map");
+  prvNh.param<string>("tf_child_frame", _tfChildFrameId, "laser");
+  prvNh.param<string>("tf_odom_frame", _tfOdomFrameId, "odom");
+  prvNh.param<string>("tf_footrpint_frame", _tfFootprintFrameId, "base_footprint");
+
+  string curRobotName;
+  prvNh.param<string>("cur_robot_name", curRobotName, "");
+
+  _tfBaseFrameId = curRobotName+"/"+_tfBaseFrameId;
+  _tfChildFrameId = _robotName + "/" + _tfChildFrameId;
+  _tfOdomFrameId = _robotName + "/" + _tfOdomFrameId;
+  _tfFootprintFrameId = _robotName + "/" + _tfFootprintFrameId;
 
   double distFilterMax = 0.0;
   double distFilterMin = 0.0;
   int icpIterations = 0;
 
   //ICP Options
-  prvNh.param<double>(_nameSpace + "dist_filter_min", distFilterMin, DIST_FILT_MIN);
-  prvNh.param<double>(_nameSpace + "dist_filter_max", distFilterMax, DIST_FILT_MAX);
-  prvNh.param<int>(_nameSpace + "icp_iterations", icpIterations, ICP_ITERATIONS);
+  prvNh.param<double>("dist_filter_min", distFilterMin, DIST_FILT_MIN);
+  prvNh.param<double>("dist_filter_max", distFilterMax, DIST_FILT_MAX);
+  prvNh.param<int>("icp_iterations", icpIterations, ICP_ITERATIONS);
 
   //Maximum allowed offset between to aligned scans
   prvNh.param<double>("reg_trs_max", _trnsMax, TRNS_THRESH);
@@ -125,16 +133,13 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
 
 
   //ransac options
-  int paramInt = 0;
-  prvNh.param<int>(nameSpace + "ransac_trials", paramInt, RANSAC_TRIALS);
-  _ranTrials = static_cast<unsigned int>(paramInt);
-  prvNh.param<double>(nameSpace + "ransac_eps_thresh", _ranEpsThresh, RANSAC_EPS_THRESH);
-  prvNh.param<int>(nameSpace + "ransac_ctrlset_size", paramInt, RANSAC_CTRL_SET_SIZE);
-  _ranSizeCtrlSet = static_cast<unsigned int>(paramInt);
-  prvNh.param<double>(_nameSpace + "ransac_phi_max", _ranPhiMax, 30.0);
+  prvNh.param<int>("ransac_trials", _ranTrials, RANSAC_TRIALS);
+  prvNh.param<double>("ransac_eps_thresh", _ranEpsThresh, RANSAC_EPS_THRESH);
+  prvNh.param<int>("ransac_ctrlset_size", _ranSizeCtrlSet, RANSAC_CTRL_SET_SIZE);
+  prvNh.param<double>("ransac_phi_max", _ranPhiMax, 30.0);
 
   int iVar = 0;
-  prvNh.param<int>(_nameSpace + "registration_mode", iVar, ICP);
+  prvNh.param<int>("registration_mode", iVar, ICP);
   _regMode = static_cast<EnumRegModes>(iVar);
 
   /** Align Laser scans */
@@ -183,10 +188,10 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
   _icp->setMaxIterations(icpIterations);
   _icp->setConvergenceCounter(icpIterations);
 
-  _posePub = _nh->advertise<geometry_msgs::PoseStamped>(poseTopic, 1);
+  _posePub = _nh->advertise<geometry_msgs::PoseStamped>("/"+curRobotName+"/"+poseTopic, 1);
   _poseStamped.header.frame_id = _tfBaseFrameId;
   _tf.frame_id_                = _tfBaseFrameId;
-  _tf.child_frame_id_          = _nameSpace + _tfChildFrameId;
+  _tf.child_frame_id_          = _tfChildFrameId;
 
   _reverseScan = false;
 }
@@ -226,9 +231,9 @@ void ThreadLocalize::laserCallBack(const sensor_msgs::LaserScan& scan)
   }
   if(!_initialized)
   {
-    ROS_INFO_STREAM("Localizer(" << _nameSpace << ") received first scan. Initialize node...\n");
+    ROS_INFO_STREAM("Localizer for " << _robotName << " received first scan. Initialize node...\n");
     this->init(*scanCopy);
-    ROS_INFO_STREAM("Localizer(" << _nameSpace << ") initialized -> running...\n");
+    ROS_INFO_STREAM("Localizer for " << _robotName << " initialized -> running...\n");
 
     if(_useOdomRescue) odomRescueInit();
 
@@ -418,7 +423,7 @@ void ThreadLocalize::eventLoop(void)
     unsigned int validModelPoints = _rayCaster->calcCoordsFromCurrentViewMask(&_grid, _sensor, _modelCoords, _modelNormals, _maskM);
     if(validModelPoints == 0)
     {
-      ROS_ERROR_STREAM("Localizer(" << _nameSpace <<") error! Raycasting found no coordinates!\n");
+      ROS_ERROR_STREAM("Localizer for " << _robotName <<" error! Raycasting found no coordinates!\n");
       continue;
     }
 
@@ -446,7 +451,7 @@ void ThreadLocalize::eventLoop(void)
     const bool regErrorT = isRegistrationError(&T, _trnsMax, _rotMax);
     if(regErrorT)
     {
-      ROS_ERROR_STREAM("Localizer(" << _nameSpace << ") registration error! \n");
+      ROS_ERROR_STREAM("Localizer for " << _robotName << " registration error! \n");
       sendNanTransform();
     }
     else //transformation valid -> transform sensor and publish new sensor pose
@@ -478,15 +483,15 @@ void ThreadLocalize::init(const sensor_msgs::LaserScan& scan)
 
   ros::NodeHandle prvNh("~");
 
-  prvNh.param<double>(_nameSpace + "local_offset_x"        , localXoffset        , 0.0);
-  prvNh.param<double>(_nameSpace + "local_offset_y"        , localYoffset        , 0.0);
-  prvNh.param<double>(_nameSpace + "local_offset_yaw"      , localYawOffset      , 0.0);
-  prvNh.param<double>(_nameSpace + "max_range"             , maxRange            , 30.0);
-  prvNh.param<double>(_nameSpace + "min_range"             , minRange            , 0.001);
-  prvNh.param<double>(_nameSpace + "low_reflectivity_range", lowReflectivityRange, 2.0);
-  prvNh.param<double>(_nameSpace + "footprint_width"       , footPrintWidth      , 1.0);
-  prvNh.param<double>(_nameSpace + "footprint_height"      , footPrintHeight     , 1.0);
-  prvNh.param<double>(_nameSpace + "footprint_x_offset"    , footPrintXoffset    , 0.28);
+  prvNh.param<double>(_robotName + "_offset_x"        , localXoffset        , 0.0);
+  prvNh.param<double>(_robotName + "_offset_y"        , localYoffset        , 0.0);
+  prvNh.param<double>(_robotName + "_offset_yaw"      , localYawOffset      , 0.0);
+  prvNh.param<double>(_robotName + "_max_range"             , maxRange            , 30.0);
+  prvNh.param<double>(_robotName + "_min_range"             , minRange            , 0.001);
+  prvNh.param<double>("low_reflectivity_range", lowReflectivityRange, 2.0);
+  prvNh.param<double>(_robotName + "_footprint_width"       , footPrintWidth      , 1.0);
+  prvNh.param<double>(_robotName + "_footprint_height"      , footPrintHeight     , 1.0);
+  prvNh.param<double>(_robotName + "_footprint_x_offset"    , footPrintXoffset    , 0.28);
 
   const double phi    = localYawOffset;
   const double startX = _gridWidth * 0.5 + _xOffset + localXoffset;
@@ -515,7 +520,7 @@ void ThreadLocalize::init(const sensor_msgs::LaserScan& scan)
   _sensor->transform(&Tinit);
   obfloat t[2] = {startX + footPrintXoffset, startY};
   if(!_grid.freeFootprint(t, footPrintWidth, footPrintHeight))
-    ROS_ERROR_STREAM("Localizer(" << _nameSpace << ") warning! Footprint could not be freed!\n");
+    ROS_ERROR_STREAM("Localizer for " << _robotName << " warning! Footprint could not be freed!\n");
   if(!_mapper.initialized())
     _mapper.initPush(_sensor);
   _initialized = true;
