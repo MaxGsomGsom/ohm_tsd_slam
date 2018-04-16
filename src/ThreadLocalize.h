@@ -490,6 +490,11 @@ private:
    */
   bool _reverseScan;
 
+  /**
+   * Scan have only non-negative angles, for example from 0 to 2Pi, but should be from -Pi to Pi
+   */
+  bool _nonBalansedScan;
+
   double _lasMinRange;
 };
 

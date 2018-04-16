@@ -195,6 +195,7 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
   _tf.child_frame_id_          = _tfChildFrameId;
 
   _reverseScan = false;
+  _nonBalansedScan = false;
 }
 
 ThreadLocalize::~ThreadLocalize()
@@ -220,8 +221,9 @@ ThreadLocalize::~ThreadLocalize()
   _laserData.clear();
 }
 
+
 void ThreadLocalize::laserCallBack(const sensor_msgs::LaserScan& scan)
-{
+{    
   sensor_msgs::LaserScan* scanCopy = new sensor_msgs::LaserScan;
       *scanCopy = scan;
   //sensor_msgs::LaserScan scanCopy = scan;
@@ -393,6 +395,9 @@ void ThreadLocalize::eventLoop(void)
     vector<float> ranges = _laserData.front()->ranges;
     if(_reverseScan)
       std::reverse(ranges.begin(),ranges.end());
+    if (_nonBalansedScan) {
+      std::rotate(ranges.begin(), ranges.begin() + (int)round(M_PI / _laserData.front()->angle_increment), ranges.end());
+    }
 
     _stampLaserOld = _stampLaser;
     _stampLaser = _laserData.front()->header.stamp;
@@ -514,6 +519,12 @@ void ThreadLocalize::init(const sensor_msgs::LaserScan& scan)
     angle_min = -angle_min;
     std::reverse(ranges.begin(),ranges.end());
   }
+  if (scan.angle_max > M_PI) {
+      _nonBalansedScan = true;
+      angle_min -= M_PI;
+      std::rotate(ranges.begin(), ranges.begin() + (int)round(M_PI / inc), ranges.end());
+  }
+
   _sensor = new obvious::SensorPolar2D(ranges.size(), inc, angle_min, maxRange, minRange, lowReflectivityRange);
   _sensor->setRealMeasurementData(ranges, 1.0);
 
