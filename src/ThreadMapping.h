@@ -29,7 +29,7 @@ public:
    * Constructor
    * @param grid Representation
    */
-  ThreadMapping(obvious::TsdGrid* grid);
+  ThreadMapping(obvious::TsdGrid* grid, int r_count);
 
   /**
    * Destructor
@@ -48,14 +48,14 @@ public:
    * Method determining whether the tsd grid contains any data yet
    * @return true in case of an initialized grid
    */
-  bool initialized(void);
+  bool initialized(int id);
 
   /**
    * initPush
    * method to init the grid from a certain pose. Is done by the CALLING thread
    * @param sensor initial data
    */
-  void initPush(obvious::SensorPolar2D* sensor);
+  void initPush(obvious::SensorPolar2D* sensor, int id);
 
 protected:
 
@@ -80,7 +80,12 @@ private:
   /**
    * Initialized flag
    */
-  bool _initialized;
+  vector<bool> _initialized;
+
+  /**
+   * Robots count
+   */
+  int _r_count;
 };
 
 } /* namespace */

@@ -9,10 +9,12 @@
 namespace ohm_tsd_slam
 {
 
-ThreadMapping::ThreadMapping(obvious::TsdGrid* grid):
+ThreadMapping::ThreadMapping(obvious::TsdGrid* grid, int r_count):
     ThreadSLAM(*grid),
-    _initialized(false)
+    _r_count(r_count)
 {
+    for (int i = 0; i < _r_count; i++)
+        _initialized.push_back(false);
 }
 
 ThreadMapping::~ThreadMapping()
@@ -20,23 +22,25 @@ ThreadMapping::~ThreadMapping()
   _thread->join();
 }
 
-bool ThreadMapping::initialized(void)
+bool ThreadMapping::initialized(int id)
 {
+  if (id > _r_count || id < 0)
+      return true;
   bool var = false;
   _pushMutex.lock();
-  var = _initialized;
+  var = _initialized[id];
   _pushMutex.unlock();
   return var;
 }
 
-void ThreadMapping::initPush(obvious::SensorPolar2D* sensor)
+void ThreadMapping::initPush(obvious::SensorPolar2D* sensor, int id)
 {
-  if(this->initialized())
+  if(this->initialized(id))
     return;
   _pushMutex.lock();
   for(unsigned int i = 0; i < INIT_PSHS; i++)
     _grid.push(sensor);
-  _initialized = true;
+  _initialized[id] = true;
   _pushMutex.unlock();
 }
 
@@ -56,7 +60,7 @@ void ThreadMapping::eventLoop(void)
       _pushMutex.lock();
       //cout << "Queue size: " << _sensors.size() << endl;
       delete sensor;
-      _initialized = true;
+      //_initialized = true;
       _pushMutex.unlock();
     }
   }

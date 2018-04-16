@@ -78,8 +78,8 @@ public:
    * @param xOffFactor Origin x position
    * @param yOffFactor Origin y position
    */
-  ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ros::NodeHandle* nh, std::string nameSpace,
-      const double xOffset, const double yOffset);
+  ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ros::NodeHandle* nh, std::string robotName,
+      int robotId, const double xOffset, const double yOffset);
 
   /**
    * Destructor
@@ -335,6 +335,11 @@ private:
    * namespace for all topics and services
    */
   std::string _robotName;
+
+  /**
+   * thread number(=robot number)
+  */
+  int _r_id;
 
   /**
    * Container for laser sensor data (filled by callback)

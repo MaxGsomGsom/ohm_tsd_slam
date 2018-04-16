@@ -61,18 +61,18 @@ SlamNode::SlamNode(void)
   ROS_INFO_STREAM("Creating representation with " << cellsPerSide << "x" << cellsPerSide << "cells, representating " <<
                   sideLength << "x" << sideLength << "m^2" << endl);
   //instanciate mapping threads
-  _threadMapping = new ThreadMapping(_grid);
+  _threadMapping = new ThreadMapping(_grid, robotNbr);
   _threadGrid    = new ThreadGrid(_grid, &_nh, xOffset, yOffset);
 
   ThreadLocalize* threadLocalize = NULL;
   TaggedSubscriber subs;
-  string nameSpace = "";
+  string robotName = "";
 
   //instanciate localization threads
   if(robotNbr == 1)  //single slam
   {
-    threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, nameSpace, xOffset, yOffset);
-    subs = TaggedSubscriber("/"+nameSpace+"/"+topicLaser, *threadLocalize, _nh);
+    threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, robotName, 0, xOffset, yOffset);
+    subs = TaggedSubscriber("/"+robotName+"/"+topicLaser, *threadLocalize, _nh);
     subs.switchOn();
     _subsLaser.push_back(subs);
     _localizers.push_back(threadLocalize);
@@ -82,13 +82,13 @@ SlamNode::SlamNode(void)
   {
     for(int i = 0; i < robotNbr; i++)   //multi slam
     {
-      prvNh.param<string>("robot_name_" + to_string(i), nameSpace, "robot" + to_string(i));
-      threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, nameSpace, xOffset, yOffset);
-      subs = TaggedSubscriber("/"+nameSpace+"/"+topicLaser, *threadLocalize, _nh);
+      prvNh.param<string>("robot_name_" + to_string(i), robotName, "robot" + to_string(i));
+      threadLocalize = new ThreadLocalize(_grid, _threadMapping, &_nh, robotName, i, xOffset, yOffset);
+      subs = TaggedSubscriber("/"+robotName+"/"+topicLaser, *threadLocalize, _nh);
       subs.switchOn();
       _subsLaser.push_back(subs);
       _localizers.push_back(threadLocalize);
-      ROS_INFO_STREAM("Started thread for " << nameSpace << endl);
+      ROS_INFO_STREAM("Started thread for " << robotName << endl);
     }
     ROS_INFO_STREAM("Multi SLAM started");
   }

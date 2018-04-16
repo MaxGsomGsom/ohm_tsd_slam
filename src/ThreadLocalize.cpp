@@ -31,7 +31,7 @@ namespace ohm_tsd_slam
 {
 
 ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ros::NodeHandle* nh, std::string robotName,
-    const double xOffset, const double yOffset):
+    int robotId, const double xOffset, const double yOffset):
                     ThreadSLAM(*grid),
                     _nh(nh),
                     _mapper(*mapper),
@@ -44,6 +44,7 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
                     _xOffset(xOffset),
                     _yOffset(yOffset),
                     _robotName(robotName),
+                    _r_id(robotId),
                     _stampLaser(ros::Time::now())
 {
   ros::NodeHandle prvNh("~");
@@ -521,8 +522,8 @@ void ThreadLocalize::init(const sensor_msgs::LaserScan& scan)
   obfloat t[2] = {startX + footPrintXoffset, startY};
   if(!_grid.freeFootprint(t, footPrintWidth, footPrintHeight))
     ROS_ERROR_STREAM("Localizer for " << _robotName << " warning! Footprint could not be freed!\n");
-  if(!_mapper.initialized())
-    _mapper.initPush(_sensor);
+  if(!_mapper.initialized(_r_id))
+    _mapper.initPush(_sensor, _r_id);
   _initialized = true;
   this->unblock();
 }
