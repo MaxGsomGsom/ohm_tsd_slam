@@ -1,5 +1,6 @@
 string topic
-uint8 startStop
+uint8 start
 uint8 STOP=0
 uint8 START=1
 ---
+string status="ok"

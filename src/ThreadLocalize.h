@@ -496,6 +496,16 @@ private:
   bool _nonBalansedScan;
 
   double _lasMinRange;
+
+  /**
+   * Scan passed in clockwise rotation (mathematically negative increment)
+   */
+  bool _publishOnlyCurRobotTf;
+
+  /**
+   * Current robot name, for example "robot0"
+   */
+  std::string _curRobotName;
 };
 
 

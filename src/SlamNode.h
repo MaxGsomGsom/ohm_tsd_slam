@@ -10,7 +10,7 @@
 #include "obcore/base/Logger.h"
 
 #include "ThreadLocalize.h"
-#include "ohm_tsd_slam/StartStopSLAM.h"
+#include "ohm_tsd_slam/StartSLAM.h"
 
 #define INIT_PSHS 1      //number of initial pushes into the grid
 #define THREAD_TERM_MS 1   //time in ms waiting for thread to terminate
@@ -98,7 +98,7 @@ private:
    */
   void timedGridPub(void);
 
-  bool callBackServiceStartStopSLAM(ohm_tsd_slam::StartStopSLAM::Request& req, ohm_tsd_slam::StartStopSLAM::Response& res);
+  bool callBackServiceStartSLAM(ohm_tsd_slam::StartSLAM::Request& req, ohm_tsd_slam::StartSLAM::Response& res);
 
   /**
    * Main node handle
@@ -140,7 +140,7 @@ private:
    */
   std::vector<ThreadLocalize*> _localizers;
 
-  ros::ServiceServer _serviceStartStopSLAM;
+  ros::ServiceServer _serviceStartSLAM;
 };
 
 } /* namespace ohm_tsd_slam */

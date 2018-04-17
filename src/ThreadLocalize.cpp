@@ -45,7 +45,9 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
                     _yOffset(yOffset),
                     _robotName(robotName),
                     _r_id(robotId),
-                    _stampLaser(ros::Time::now())
+                    _stampLaser(ros::Time::now()),
+                    _publishOnlyCurRobotTf(false),
+                    _curRobotName("")
 {
   ros::NodeHandle prvNh("~");
 
@@ -57,6 +59,7 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
   std::string poseTopic;
   prvNh.param<string>("pose_topic", poseTopic, "pose");
   poseTopic = _robotName + "_" + poseTopic;
+  prvNh.param<bool>("publish_only_cur_robot_tf", _publishOnlyCurRobotTf, false);
 
   //frames
   prvNh.param<string>("tf_base_frame", _tfBaseFrameId, "map");
@@ -64,10 +67,9 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
   prvNh.param<string>("tf_odom_frame", _tfOdomFrameId, "odom");
   prvNh.param<string>("tf_footrpint_frame", _tfFootprintFrameId, "base_footprint");
 
-  string curRobotName;
-  prvNh.param<string>("cur_robot_name", curRobotName, "");
+  prvNh.param<string>("cur_robot_name", _curRobotName, "");
 
-  _tfBaseFrameId = curRobotName+"/"+_tfBaseFrameId;
+  _tfBaseFrameId = _curRobotName+"/"+_tfBaseFrameId;
   _tfChildFrameId = _robotName + "/" + _tfChildFrameId;
   _tfOdomFrameId = _robotName + "/" + _tfOdomFrameId;
   _tfFootprintFrameId = _robotName + "/" + _tfFootprintFrameId;
@@ -189,7 +191,7 @@ ThreadLocalize::ThreadLocalize(obvious::TsdGrid* grid, ThreadMapping* mapper, ro
   _icp->setMaxIterations(icpIterations);
   _icp->setConvergenceCounter(icpIterations);
 
-  _posePub = _nh->advertise<geometry_msgs::PoseStamped>("/"+curRobotName+"/"+poseTopic, 1);
+  _posePub = _nh->advertise<geometry_msgs::PoseStamped>("/"+_curRobotName+"/"+poseTopic, 1);
   _poseStamped.header.frame_id = _tfBaseFrameId;
   _tf.frame_id_                = _tfBaseFrameId;
   _tf.child_frame_id_          = _tfChildFrameId;
@@ -234,9 +236,9 @@ void ThreadLocalize::laserCallBack(const sensor_msgs::LaserScan& scan)
   }
   if(!_initialized)
   {
-    ROS_INFO_STREAM("Localizer for " << _robotName << " received first scan. Initialize node...\n");
+    ROS_INFO_STREAM("Localizer for " << _robotName << " received first scan. Initialize node...");
     this->init(*scanCopy);
-    ROS_INFO_STREAM("Localizer for " << _robotName << " initialized -> running...\n");
+    ROS_INFO_STREAM("Localizer for " << _robotName << " initialized -> running...");
 
     if(_useOdomRescue) odomRescueInit();
 
@@ -626,6 +628,8 @@ bool ThreadLocalize::isRegistrationError(obvious::Matrix* T, const double trnsMa
 
 void ThreadLocalize::sendTransform(obvious::Matrix* T)
 {
+  if (_publishOnlyCurRobotTf && _robotName != _curRobotName) return;
+
   const double curTheta = this->calcAngle(T);
   const double posX = (*T)(0, 2) + _gridOffSetX;
   const double posY = (*T)(1, 2) + _gridOffSetY;
@@ -647,6 +651,8 @@ void ThreadLocalize::sendTransform(obvious::Matrix* T)
   _tf.setRotation(quat);
 
   _posePub.publish(_poseStamped);
+
+  if (_publishOnlyCurRobotTf && _robotName != _curRobotName) return;
   _tfBroadcaster.sendTransform(_tf);
 }
 
@@ -668,6 +674,8 @@ void ThreadLocalize::sendNanTransform()
   _tf.setRotation(quat);
 
   _posePub.publish(_poseStamped);
+
+  if (_publishOnlyCurRobotTf && _robotName != _curRobotName) return;
   _tfBroadcaster.sendTransform(_tf);
 }
 

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(ohm_tsd_slam)
 
+set(CMAKE_BUILD_TYPE Release)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -10,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   tf
+  message_generation
 )
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -fopenmp -O2 -mtune=native -Wall -std=c++11")
@@ -58,7 +61,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
-   StartStopSLAM.srv
+   StartSLAM.srv
 #   Service2.srv
 )
 
@@ -71,7 +74,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
-#   DEPENDENCIES
+   DEPENDENCIES
 #   geometry_msgs#   nav_msgs#   sensor_msgs
 )
 
@@ -87,7 +90,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES ohm_tsd_slam
-#  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp sensor_msgs tf
+  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp sensor_msgs tf message_runtime
 #  DEPENDS system_lib
 )
 

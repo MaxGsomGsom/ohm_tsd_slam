@@ -92,7 +92,7 @@ SlamNode::SlamNode(void)
     }
     ROS_INFO_STREAM("Multi SLAM started");
   }
-  _serviceStartStopSLAM = _nh.advertiseService("/"+curRobotName+"/"+topicServiceStartStop, &SlamNode::callBackServiceStartStopSLAM, this);
+  _serviceStartSLAM = _nh.advertiseService("/"+curRobotName+"/"+topicServiceStartStop, &SlamNode::callBackServiceStartSLAM, this);
 }
 
 SlamNode::~SlamNode()
@@ -140,7 +140,7 @@ void SlamNode::run(void)
   }
 }
 
-bool SlamNode::callBackServiceStartStopSLAM(ohm_tsd_slam::StartStopSLAM::Request& req, ohm_tsd_slam::StartStopSLAM::Response& res)
+bool SlamNode::callBackServiceStartSLAM(ohm_tsd_slam::StartSLAM::Request& req, ohm_tsd_slam::StartSLAM::Response& res)
 {
   TaggedSubscriber* subsCur = NULL;
   for(auto iter = _subsLaser.begin(); iter < _subsLaser.end(); iter++)
@@ -153,12 +153,12 @@ bool SlamNode::callBackServiceStartStopSLAM(ohm_tsd_slam::StartStopSLAM::Request
     ROS_ERROR_STREAM(__PRETTY_FUNCTION__ << " Error! Topic " << req.topic << " invalid!");
     return false;
   }
-  if(req.startStop == req.START)
+  if(req.start == req.START)
   {
     ROS_INFO_STREAM(__PRETTY_FUNCTION__ << " Started SLAM for topic " << req.topic);
     subsCur->switchOn();
   }
-  else if(req.startStop == req.STOP)
+  else if(req.start == req.STOP)
   {
     ROS_INFO_STREAM(__PRETTY_FUNCTION__ << " Stopped SLAM for topic " << req.topic);
     subsCur->switchOff();
